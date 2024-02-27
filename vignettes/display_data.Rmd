@@ -1,0 +1,61 @@
+---
+title: "Display data from {themeparkr}"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Display data from {themeparkr}}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+Function to map live data
+```{r}
+#' @importFrom dplyr left_join mutate select across desc
+#' @importFrom purrr map_int map_chr
+#' @importFrom lubridate ymd_hms
+
+prepare_table_data <- function(data) {
+  data %>%
+    dplyr::mutate(
+      wait_time = queue %>%
+        purrr::map_int(purrr::pluck, "STANDBY", "waitTime", .default = NA_integer_),
+      ll_time = queue %>%
+        purrr::map_chr(purrr::pluck, "RETURN_TIME", "returnStart", .default = NA_character_)
+    ) %>%
+    dplyr::left_join(p, by = c("parkId" = "parks_id")) %>%
+    dplyr::select(parks_name, id, name, status, ll_time,wait_time,lastUpdated) %>%
+    dplyr::mutate(
+      dplyr::across(
+        .cols = dplyr::all_of(c("ll_time", "lastUpdated")),
+        .fns = lubridate::ymd_hms
+      )
+    ) %>%
+    dplyr::arrange(dplyr::desc(wait_time)) %>% 
+    dplyr::mutate(
+      status_cols = dplyr::case_match(status,
+                                      "OPERATING" ~ "blue",
+                                      "DOWN" ~ "orange"
+      )
+    )
+}
+
+map_data <- function(data, latitude = latitude, longitude = longitude) {
+  leaflet::leaflet(data = data) %>%
+    leaflet::addTiles() %>%
+    leaflet::addCircleMarkers(
+      lat = ~latitude,
+      lng = ~longitude,
+      label = ~map_data_labels(name),
+      color = ~ifelse(status == "OPERATING", "blue", "orange"),
+      stroke = TRUE, fillOpacity = 0.75
+    )
+}
+```
+
+

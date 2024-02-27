@@ -1,0 +1,71 @@
+---
+title: "Download data from {themeparkr}"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Download data from {themeparkr}}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+Function to get static data
+```{r}
+#' @importFrom themeparkr tpr_destinations tpr_entity_children tpr_entity
+#' @importFrom dplyr filter pull select
+#' @importFrom purrr map list_rbind
+
+get_data_parks <- function() {
+  themeparkr::tpr_destinations() %>%
+    dplyr::select(parks_id, parks_name) %>%
+    dplyr::mutate(
+      parks_name = dplyr::recode(
+        parks_name,
+        "Disney's Animal Kingdom Theme Park" = "Animal Kingdom",
+        "Disney's Hollywood Studios" = "Hollywood Studios",
+        "EPCOT" = "Epcot",
+        "Magic Kingdom Park" = "Magic Kingdom"
+      )
+    )
+}
+
+get_data_static <- function() {
+  themeparkr::tpr_destinations() %>%
+    dplyr::filter(parks_name %in% c("Magic Kingdom Park", "EPCOT",
+                                    "Disney's Hollywood Studios",
+                                    "Disney's Animal Kingdom Theme Park")) %>%
+    dplyr::pull(parks_id) %>%
+    purrr::map(.f = tpr_entity_children) %>%
+    purrr::list_rbind() %>%
+    dplyr::filter(entityType == "ATTRACTION") %>%
+    dplyr::pull(id) %>%
+    purrr::map(.f = tpr_entity) %>%
+    purrr::list_rbind() %>%
+    dplyr::filter(attractionType == "RIDE")
+}
+
+```
+
+Function to get live data
+```{r}
+#' @importFrom themeparkr tpr_destinations tpr_entity_children tpr_entity
+#' @importFrom dplyr filter left_join
+#' @importFrom purrr map list_rbind
+get_live_data <- function(static_data, column = "parkId") {
+  static_data %>%
+    dplyr::left_join(
+      static_data[[column]] %>% 
+        unique() %>%
+        purrr::map(.f = tpr_entity_live) %>%
+        purrr::list_rbind(),
+      by = "id"
+    ) %>%
+    dplyr::filter(status %in% c("OPERATING", "DOWN"))
+}
+```
+

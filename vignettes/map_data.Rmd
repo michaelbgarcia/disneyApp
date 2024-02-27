@@ -1,0 +1,37 @@
+---
+title: "Map data from {themeparkr}"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Map data from {themeparkr}}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+Function to map live data
+```{r}
+#' @importFrom leaflet leaflet addTiles addCircleMarkers
+
+map_data_labels <- function(name) {
+  paste0(name)
+}
+
+map_data <- function(data, latitude = latitude, longitude = longitude) {
+  leaflet::leaflet(data = data) %>%
+    leaflet::addTiles() %>%
+    leaflet::addCircleMarkers(
+      lat = ~latitude,
+      lng = ~longitude,
+      label = ~map_data_labels(name),
+      color = ~ifelse(status == "OPERATING", "blue", "orange"),
+      stroke = TRUE, fillOpacity = 0.75
+    )
+}
+```
+

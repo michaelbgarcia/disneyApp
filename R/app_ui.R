@@ -3,14 +3,20 @@
 #' @param request Internal parameter for `{shiny}`.
 #'     DO NOT REMOVE.
 #' @import shiny
+#' @import bslib
 #' @noRd
 app_ui <- function(request) {
   tagList(
     # Leave this function for adding external resources
     golem_add_external_resources(),
     # Your application UI logic
-    fluidPage(
-      h1("disneyApp")
+    page_sidebar(
+      title = "Disney World Wait Times",
+      sidebar = sidebar(
+        selectInput("park_select", "Select Park", choices = unique(parks_data$parks_name))
+      ),
+      mod_table_main_ui("table_main_1"),
+      mod_map_main_ui("map_main_1")
     )
   )
 }

@@ -1,0 +1,170 @@
+---
+title: "Downloading data from {themeparkr}"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Downloading data from {themeparkr}}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(themeparkr)
+library(dplyr)
+library(purrr)
+library(tidyr)
+```
+
+Get static park data filtered for Walt Disney World.    
+Filter for "attractions" that are actual rides.    
+```{r}
+wdw_park_tbl = tpr_destinations() %>%
+  filter(parks_name %in% c("Magic Kingdom Park", "EPCOT",
+                           "Disney's Hollywood Studios",
+                           "Disney's Animal Kingdom Theme Park"))
+wdw_children_tbl = wdw_park_tbl$parks_id %>%
+  map_dfr(.f = tpr_entity_children)
+
+wdw_attraction_tbl = wdw_children_tbl %>%
+  filter(entityType == "ATTRACTION")
+
+wdw_attraction_detail_tbl = wdw_attraction_tbl$id %>%
+  map_dfr(.f = tpr_entity)
+
+wdw_rides_detail_tbl = wdw_attraction_detail_tbl %>%
+  filter(attractionType == "RIDE")
+
+wdw_rides_detail_tbl
+```
+
+Extract latitude and longitude from location field.    
+Pivot to 2 new colums.   
+```{r}
+rides_w_coord = wdw_rides_detail_tbl %>% 
+  unnest_longer(location,values_to = "location",indices_to = "location_id") %>%
+  filter(location_id %in% c("latitude","longitude")) %>%
+  mutate(location = as.numeric(location)) %>%
+  pivot_wider(names_from = "location_id", values_from = "location")
+
+rides_w_coord
+```
+
+Get live wait time data.   
+This is separate in case we want to make this "on-demand" to the user.    
+Anchor to the static parks above as that would not change.   .
+```{r}
+live_rides = rides_w_coord %>%
+  left_join(
+    rides_w_coord$id %>% map_dfr(.f = ~tpr_entity_live(.x)),
+    by = "id"
+  )
+
+live_rides_open = live_rides %>%
+  filter(status %in% c("OPERATING", "DOWN"))
+
+live_rides_open
+```
+
+more data wrangling for wait times
+show park name, ride name, wait time, last updated
+```{r}
+c = b %>%
+  mutate(
+    wait_time = queue %>%
+      map_int(pluck, "STANDBY", "waitTime", .default = NA_integer_),
+    ll_time = queue %>%
+      map_chr(pluck, "RETURN_TIME", "returnStart", .default = NA_character_)
+  ) %>%
+  left_join(p, by = c("parkId" = "parks_id")) %>%
+  select(parks_name, id, name, status, ll_time,wait_time,lastUpdated) %>%
+  mutate(
+    across(
+      .cols = all_of(c("ll_time", "lastUpdated")),
+      .fns = lubridate::ymd_hms
+    )
+  ) %>%
+  arrange(desc(wait_time)) %>% 
+  mutate(
+    status_cols = case_match(status,
+                             "OPERATING" ~ "blue",
+                             "DOWN" ~ "orange"
+    )
+  )
+
+library(reactable)
+c %>%
+  mutate(
+    status_cols = case_match(status,
+                             "OPERATING" ~ "blue",
+                             "DOWN" ~ "orange"
+    )
+  ) %>%
+  reactable(
+    theme = fivethirtyeight(centered = TRUE, header_font_size = 11),
+    pagination = TRUE,
+    showSortIcon = FALSE,
+    highlight = TRUE,
+    compact = TRUE,
+    selection = "single",
+    onClick = "select",
+    defaultSelected = 1,
+    columns = list(
+      id = colDef(show = FALSE),
+      parks_name = colDef(show = FALSE),
+      name = colDef(
+        align = "left",
+        cell = merge_column(., "parks_name", merged_position = "below"),
+      ),
+      status = colDef(
+        maxWidth = 150,
+        name = "Status",
+        align = "center",
+        cell = pill_buttons(., color_ref = "status_cols", opacity = 0.7),
+      ),
+      status_cols = colDef(show = FALSE),
+      wait_time = colDef(
+        maxWidth = 50,
+        name = "Wait (min.)",
+        align = "center"
+      ),
+      ll_time = colDef(
+        name = "Next LL Time"
+      ),
+      lastUpdated = colDef(
+        name = "Last Updated"
+        )
+  )
+)
+```
+
+
+Leaflet map of locations
+dot markers of locations
+orange for 'down' rides
+blue to operating
+```{r}
+library(leaflet)
+a = get_static_data()
+b = get_live_data(a)
+
+leaflet(data = b) %>%
+  addTiles() %>%
+  addCircleMarkers(
+    lat = ~latitude,
+    lng = ~longitude,
+    color = ~ifelse(status == "OPERATING", "blue", "orange"),
+    stroke = TRUE, fillOpacity = 0.75
+  )
+```
+
+display data with reactable
+```{r}
+
+```
+
