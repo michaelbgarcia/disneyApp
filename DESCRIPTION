@@ -12,6 +12,7 @@ Imports:
     golem (>= 0.4.1),
     leaflet,
     magrittr,
+    pkgload,
     purrr,
     shiny (>= 1.7.4),
     themeparkr
