@@ -1,0 +1,12 @@
+name: disneyApp
+title: disneyApp
+username: mike12187
+account: mike12187
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 11342802
+bundleId: 8303617
+url: https://mike12187.shinyapps.io/disneyApp/
+version: 1
+asMultiple: FALSE
+asStatic: FALSE

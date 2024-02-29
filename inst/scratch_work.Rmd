@@ -74,6 +74,7 @@ live_rides_open
 more data wrangling for wait times
 show park name, ride name, wait time, last updated
 ```{r}
+library(lubridate)
 c = b %>%
   mutate(
     wait_time = queue %>%
